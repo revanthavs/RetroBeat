@@ -187,6 +187,17 @@ const blobToBase64 = (blob: Blob): Promise<string> =>
         reader.readAsDataURL(blob);
     });
 
+const isFilesystemDirectoryAlreadyExistsError = (error: unknown): boolean => {
+    if (!error || typeof error !== 'object') return false;
+    const candidate = error as { code?: string; errorMessage?: string; message?: string };
+    if (candidate.code === 'OS-PLUG-FILE-0010') return true;
+    const narrative = candidate.errorMessage ?? candidate.message;
+    if (typeof narrative === 'string') {
+        return /already exists|cannot be overwritten/i.test(narrative);
+    }
+    return false;
+};
+
 const persistBlobForNativePlayback = async (song: Song): Promise<string | undefined> => {
     if (!isNativeIOSRuntime() || !song.fileBlob) return undefined;
     if (song.nativeFilePath) return song.nativeFilePath;
@@ -194,11 +205,17 @@ const persistBlobForNativePlayback = async (song: Song): Promise<string | undefi
     const extension = guessExtensionFromMime(song.fileBlob.type);
     const path = `${NATIVE_AUDIO_DIR}/song-${songIdPart}${extension}`;
 
-    await Filesystem.mkdir({
-        path: NATIVE_AUDIO_DIR,
-        directory: Directory.Data,
-        recursive: true,
-    });
+    try {
+        await Filesystem.mkdir({
+            path: NATIVE_AUDIO_DIR,
+            directory: Directory.Data,
+            recursive: true,
+        });
+    } catch (mkdirError: unknown) {
+        if (!isFilesystemDirectoryAlreadyExistsError(mkdirError)) {
+            throw mkdirError;
+        }
+    }
 
     const base64 = await blobToBase64(song.fileBlob);
     await Filesystem.writeFile({
@@ -1716,6 +1733,11 @@ const App: React.FC = () => {
         }
     });
 
+    const sanitizeSongForState = (song: Song): Song => {
+        const { fileBlob, ...rest } = song;
+        return rest as Song;
+    };
+
 
     // --- Refs ---
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1903,26 +1925,30 @@ const App: React.FC = () => {
             }
 
             try {
-                let song = songsRef.current.find(candidate => candidate.id === currentTrackId);
-                if (!song) {
-                    song = await db.songs.get(currentTrackId);
-                }
+                const stateSong = songsRef.current.find(candidate => candidate.id === currentTrackId);
+                const dbSong = await db.songs.get(currentTrackId);
+                const song = dbSong ?? stateSong;
                 if (!song) {
                     console.warn(`Song with id ${currentTrackId} not found. Skipping.`);
                     handleNext();
                     return;
                 }
 
+                const playableBlob = dbSong?.fileBlob ?? stateSong?.fileBlob;
+
                 if (isNativeIOSRuntime()) {
                     let nativeFilePath = song.nativeFilePath;
-                    if (!nativeFilePath && song.fileBlob) {
+                    if (!nativeFilePath && playableBlob) {
                         try {
-                            nativeFilePath = await persistBlobForNativePlayback(song);
+                            const songForPersist = { ...song, fileBlob: playableBlob };
+                            nativeFilePath = await persistBlobForNativePlayback(songForPersist);
                             if (nativeFilePath && song.id !== undefined) {
                                 await db.songs.update(song.id, { nativeFilePath });
                                 setSongs(prevSongs =>
                                     prevSongs.map(existingSong =>
-                                        existingSong.id === song.id ? { ...existingSong, nativeFilePath } : existingSong
+                                        existingSong.id === song.id
+                                            ? sanitizeSongForState({ ...existingSong, nativeFilePath })
+                                            : existingSong
                                     )
                                 );
                             }
@@ -1939,8 +1965,8 @@ const App: React.FC = () => {
                     }
                 }
 
-                if (song.fileBlob) {
-                    const url = URL.createObjectURL(song.fileBlob);
+                if (playableBlob) {
+                    const url = URL.createObjectURL(playableBlob);
                     if (cancelled) {
                         URL.revokeObjectURL(url);
                         return;
@@ -2156,7 +2182,9 @@ const App: React.FC = () => {
           setSongs(prevSongs => prevSongs.map(song => {
             if (!song.id) return song;
             const changes = updatesBySongId.get(song.id);
-            return changes ? { ...song, ...changes } : song;
+            return changes
+              ? sanitizeSongForState({ ...song, ...changes })
+              : song;
           }));
         }
       } catch (error) {
@@ -2241,7 +2269,7 @@ const App: React.FC = () => {
                 const songCount = await db.songs.count();
                 if (songCount > 0) {
                     const loadedSongs = await db.songs.toArray();
-                    setSongs(loadedSongs);
+                    setSongs(loadedSongs.map(sanitizeSongForState));
                     setNavigationStack([{ id: 'main', activeIndex: 0 }]);
                     void reconcilePlaylistsWithLibrary(loadedSongs);
                     window.setTimeout(() => {
@@ -2262,6 +2290,43 @@ const App: React.FC = () => {
 
         initializeApp();
     }, [calculateTodayStats, repairLibraryMetadata, reconcilePlaylistsWithLibrary]);
+
+    const addSongsInChunks = useCallback(async (songsData: Song[]) => {
+        const chunkSize = 30;
+        const insertedIds: (number | undefined)[] = [];
+        try {
+            for (let i = 0; i < songsData.length; i += chunkSize) {
+                const chunk = songsData.slice(i, i + chunkSize);
+                const chunkIds = await db.songs.bulkAdd(chunk, { allKeys: true }) as number[];
+                if (chunkIds.length === chunk.length) {
+                    insertedIds.push(...chunkIds);
+                } else {
+                    for (const id of chunkIds) {
+                        insertedIds.push(id);
+                    }
+                    if (chunkIds.length < chunk.length) {
+                        const remainder = chunk.length - chunkIds.length;
+                        for (let j = 0; j < remainder; j++) {
+                            insertedIds.push(undefined);
+                        }
+                    }
+                }
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
+        } catch (error) {
+            console.warn('Chunked insert failed, falling back to single inserts.', error);
+            for (const song of songsData) {
+                try {
+                    const id = await db.songs.add(song);
+                    insertedIds.push(id);
+                } catch (songError) {
+                    console.warn('Failed to insert song individually:', songError);
+                    insertedIds.push(undefined);
+                }
+            }
+        }
+        return insertedIds;
+    }, []);
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
       const files = event.target.files;
@@ -2367,54 +2432,57 @@ const App: React.FC = () => {
         `Metadata summary: ${metadataResolvedCount}/${audioFiles.length} songs resolved, ${artworkResolvedCount}/${audioFiles.length} with artwork, ${metadataFallbackCount} fallback(s).`
       );
 
-      try {
-          const existingSongs = await db.songs.toArray();
-          const existingSongKeys = new Set(
-              existingSongs.map(s => `${s.title.trim().toLowerCase()}|${s.artist.trim().toLowerCase()}|${s.album.trim().toLowerCase()}`)
-          );
+          try {
+              const existingSongs = await db.songs.toArray();
+              const existingSongKeys = new Set(
+                  existingSongs.map(s => `${s.title.trim().toLowerCase()}|${s.artist.trim().toLowerCase()}|${s.album.trim().toLowerCase()}`)
+              );
 
-          const songsToAdd = parsedSongs.filter(s => {
-              const key = `${s.title.trim().toLowerCase()}|${s.artist.trim().toLowerCase()}|${s.album.trim().toLowerCase()}`;
-              return !existingSongKeys.has(key);
-          });
-          
-          if (songsToAdd.length > 0) {
-              setLoadingProgress(`Adding ${songsToAdd.length} new songs...`);
-              const songsForDb = songsToAdd.map(({ folderName, folderPath, ...rest }) => rest);
-              const addedSongIds = await db.songs.bulkAdd(songsForDb as Song[], { allKeys: true }) as number[];
-
-              const folderToSongIds = new Map<string, number[]>();
-              songsToAdd.forEach((song, index) => {
-                  if (song.folderName) {
-                      if (!folderToSongIds.has(song.folderName)) {
-                          folderToSongIds.set(song.folderName, []);
-                      }
-                      folderToSongIds.get(song.folderName)!.push(addedSongIds[index]);
-                  }
+              const songsToAdd = parsedSongs.filter(s => {
+                  const key = `${s.title.trim().toLowerCase()}|${s.artist.trim().toLowerCase()}|${s.album.trim().toLowerCase()}`;
+                  return !existingSongKeys.has(key);
               });
-              
-              if (folderToSongIds.size > 0) {
-                  setLoadingProgress('Creating playlists...');
-                  await db.transaction('rw', db.playlists, async () => {
-                      for (const [folderName, newSongIds] of folderToSongIds.entries()) {
-                          const existingPlaylist = await db.playlists.get({ name: folderName });
-                          if (existingPlaylist) {
-                              const combinedSongIds = [...new Set([...existingPlaylist.songIds, ...newSongIds])];
-                              await db.playlists.update(existingPlaylist.id!, { songIds: combinedSongIds });
-                          } else {
-                              await db.playlists.add({ name: folderName, songIds: newSongIds });
+          
+              if (songsToAdd.length > 0) {
+                  setLoadingProgress(`Adding ${songsToAdd.length} new songs...`);
+                  const songsForDb = songsToAdd.map(({ folderName, folderPath, ...rest }) => rest);
+                  const addedSongIds = await addSongsInChunks(songsForDb as Song[]);
+
+                  const folderToSongIds = new Map<string, number[]>();
+                  songsToAdd.forEach((song, index) => {
+                      if (song.folderName) {
+                          if (!folderToSongIds.has(song.folderName)) {
+                              folderToSongIds.set(song.folderName, []);
+                          }
+                          const songId = addedSongIds[index];
+                          if (typeof songId === 'number') {
+                              folderToSongIds.get(song.folderName)!.push(songId);
                           }
                       }
                   });
-                  setPlaylistsVersion(v => v + 1);
+                  
+                  if (folderToSongIds.size > 0) {
+                      setLoadingProgress('Creating playlists...');
+                      await db.transaction('rw', db.playlists, async () => {
+                          for (const [folderName, newSongIds] of folderToSongIds.entries()) {
+                              const existingPlaylist = await db.playlists.get({ name: folderName });
+                              if (existingPlaylist) {
+                                  const combinedSongIds = [...new Set([...existingPlaylist.songIds, ...newSongIds])];
+                                  await db.playlists.update(existingPlaylist.id!, { songIds: combinedSongIds });
+                              } else {
+                                  await db.playlists.add({ name: folderName, songIds: newSongIds });
+                              }
+                          }
+                      });
+                      setPlaylistsVersion(v => v + 1);
+                  }
+              } else {
+                  setLoadingProgress('No new songs to add.');
+                  await new Promise(resolve => setTimeout(resolve, 1500)); // Show message briefly
               }
-          } else {
-              setLoadingProgress('No new songs to add.');
-              await new Promise(resolve => setTimeout(resolve, 1500)); // Show message briefly
-          }
           
           const allSongs = await db.songs.toArray();
-          setSongs(allSongs);
+          setSongs(allSongs.map(sanitizeSongForState));
           await reconcilePlaylistsWithLibrary(allSongs);
           
           await db.transaction('rw', db.playlists, async () => {
@@ -2439,7 +2507,13 @@ const App: React.FC = () => {
         const newRating = Math.max(0, Math.min(5, Math.round(rating)));
         try {
             await db.songs.update(songId, { rating: newRating });
-            setSongs(prevSongs => prevSongs.map(s => s.id === songId ? { ...s, rating: newRating } : s));
+            setSongs(prevSongs =>
+                prevSongs.map(s =>
+                    s.id === songId
+                        ? sanitizeSongForState({ ...s, rating: newRating })
+                        : s
+                )
+            );
         } catch (error) {
             console.error(`Failed to update rating for song ${songId}:`, error);
         }

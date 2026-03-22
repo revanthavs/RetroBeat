@@ -7,7 +7,7 @@ export interface ArtworkData {
 
 export interface Song {
   id?: number; // Primary key, optional because it's auto-incrementing
-  fileBlob: Blob;
+  fileBlob?: Blob;
   nativeFilePath?: string;
   title: string;
   artist: string;
