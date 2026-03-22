@@ -1,0 +1,37 @@
+{
+  "name": "copy-of-reactpod",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:web": "vite build",
+    "preview": "vite preview",
+    "ios:add": "LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 npx cap add ios",
+    "ios:sync:native": "LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 npx cap sync ios",
+    "ios:sync": "npm run build:web && npm run ios:sync:native",
+    "ios:open": "npx cap open ios",
+    "ios:run": "npm run ios:sync && LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 npx cap run ios"
+  },
+  "dependencies": {
+    "@capacitor/core": "^7.5.0",
+    "@capacitor/filesystem": "^7.1.8",
+    "@capacitor/ios": "^7.5.0",
+    "dexie": "3.2.7",
+    "dexie-react-hooks": "^1.1.7",
+    "music-metadata-browser": "2.5.10",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.5.0",
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "autoprefixer": "^10.4.24",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.17",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}
