@@ -26,7 +26,7 @@ type NowPlayingMode = 'volume' | 'rating';
 const SUPPORTED_EXTENSIONS = ['.mp3', '.m4a', '.flac', '.wav', '.aac', '.ogg'];
 const SUPPORTED_ARTWORK_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'];
 const NO_FOLDER_PLAYLIST_NAME = 'Imported Files';
-const VOLUME_STORAGE_KEY = 'reactpod-volume-v1';
+const VOLUME_STORAGE_KEY = 'retrobeat-volume-v1';
 
 // --- Color Customization Constants ---
 const BODY_COLORS = [
@@ -98,8 +98,8 @@ const getInitialBallVelocity = (speed: number) => {
 };
 
 const METADATA_PARSE_OPTIONS = { duration: true, skipCovers: false };
-const METADATA_REPAIR_VERSION = 'reactpod-metadata-repair-v5';
-const NATIVE_AUDIO_DIR = 'reactpod-audio';
+const METADATA_REPAIR_VERSION = 'retrobeat-metadata-repair-v5';
+const NATIVE_AUDIO_DIR = 'retrobeat-audio';
 
 const sanitizeMetadataText = (value: unknown): string | undefined => {
     if (typeof value !== 'string') return undefined;
@@ -1332,7 +1332,7 @@ const FileLoadView = memo<FileLoadViewProps>(({ isLoading, loadingProgress, onLo
       </>
     ) : (
       <>
-        <h2 className="text-lg font-bold">{isInitialLoad ? 'ReactPod' : 'Add Music'}</h2>
+        <h2 className="text-lg font-bold">{isInitialLoad ? 'RetroBeat' : 'Add Music'}</h2>
         <p className="mt-2 mb-4">{isInitialLoad ? 'A Classic Music Experience' : 'Add more songs to your library.'}</p>
         <button onClick={onLoad} className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg shadow">
           {isInitialLoad ? 'Load Music' : (directoryUploadSupported ? 'Select Music Folder' : 'Select Music Files')}
@@ -1869,9 +1869,9 @@ const App: React.FC = () => {
             }
         };
 
-        window.addEventListener('reactpod-remote-command', onRemoteCommand as EventListener);
+        window.addEventListener('retrobeat-remote-command', onRemoteCommand as EventListener);
         return () => {
-            window.removeEventListener('reactpod-remote-command', onRemoteCommand as EventListener);
+            window.removeEventListener('retrobeat-remote-command', onRemoteCommand as EventListener);
         };
     }, [runRemoteCommand]);
 
@@ -3047,7 +3047,7 @@ const App: React.FC = () => {
     const getScreenTitle = () => {
       const viewId = currentView.id;
       const viewParam = viewId.includes('/') ? viewId.split('/')[1] : undefined;
-      if (viewId === 'main') return 'ReactPod';
+      if (viewId === 'main') return 'RetroBeat';
       if (viewId === 'now-playing') return 'Now Playing';
       if (viewId === 'cover-flow') return 'Cover Flow';
       if (viewId === 'search') return 'Search';
@@ -3134,7 +3134,7 @@ const App: React.FC = () => {
         if (currentView.id === 'about') {
             return (
                 <div className="flex flex-col items-center justify-center h-full text-center text-gray-800 p-4 space-y-2">
-                    <h2 className="text-lg font-bold">ReactPod</h2>
+                    <h2 className="text-lg font-bold">RetroBeat</h2>
                     <p>Developed by Revanth Atmakuri</p>
                 </div>
             );

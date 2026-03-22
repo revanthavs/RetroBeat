@@ -1,7 +1,7 @@
 import Dexie, { type Table } from 'dexie';
 import type { Song, Playlist, FocusSession, FocusSettings } from './types';
 
-const db = new Dexie('ReactPodDatabase') as Dexie & {
+const db = new Dexie('RetroBeatDatabase') as Dexie & {
   songs: Table<Song, number>;
   playlists: Table<Playlist, number>;
   focusSessions: Table<FocusSession, number>;

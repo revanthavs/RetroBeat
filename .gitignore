@@ -1,0 +1,14 @@
+# Local agent notes
+AGENT_README.md
+
+# Dependencies
+node_modules/
+node_modules/.package-lock.json
+
+# macOS
+.DS_Store
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

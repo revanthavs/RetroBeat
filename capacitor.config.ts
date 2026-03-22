@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.revanthatmakuri.reactpod',
-  appName: 'ReactPod',
+  appId: 'com.revanthatmakuri.retrobeat',
+  appName: 'RetroBeat',
   webDir: 'dist',
   bundledWebRuntime: false,
   server: {
