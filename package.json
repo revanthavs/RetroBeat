@@ -1,18 +1,18 @@
 {
-  "name": "copy-of-reactpod",
+  "name": "retrobeat",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "build:web": "vite build",
-    "preview": "vite preview",
-    "ios:add": "LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 npx cap add ios",
-    "ios:sync:native": "LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 npx cap sync ios",
+    "dev": "node ./node_modules/vite/dist/node/cli.js",
+    "build": "node ./node_modules/vite/dist/node/cli.js build",
+    "build:web": "npm run build",
+    "preview": "node ./node_modules/vite/dist/node/cli.js preview",
+    "ios:add": "LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 node ./node_modules/@capacitor/cli/dist/index.js add ios",
+    "ios:sync:native": "LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 node ./node_modules/@capacitor/cli/dist/index.js sync ios",
     "ios:sync": "npm run build:web && npm run ios:sync:native",
-    "ios:open": "npx cap open ios",
-    "ios:run": "npm run ios:sync && LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 npx cap run ios"
+    "ios:open": "node ./node_modules/@capacitor/cli/dist/index.js open ios",
+    "ios:run": "npm run ios:sync && LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 node ./node_modules/@capacitor/cli/dist/index.js run ios"
   },
   "dependencies": {
     "@capacitor/core": "^7.5.0",
@@ -22,7 +22,8 @@
     "dexie-react-hooks": "^1.1.7",
     "music-metadata-browser": "2.5.10",
     "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react-dom": "^19.1.1",
+    "semver": "^7.7.4"
   },
   "devDependencies": {
     "@capacitor/cli": "^7.5.0",

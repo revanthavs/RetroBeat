@@ -1,6 +1,6 @@
-# ReactPod
+# RetroBeat
 
-ReactPod is a React + Vite iPod Classic style music player.
+RetroBeat is a React + Vite iPod Classic style music player.
 
 ## Web Development
 
@@ -26,5 +26,5 @@ ReactPod is a React + Vite iPod Classic style music player.
 ## iOS Import Behavior
 
 - iOS does not support folder-picking in the same way desktop browsers do.
-- ReactPod automatically falls back to file-based import on iOS.
+- RetroBeat automatically falls back to file-based import on iOS.
 - Select multiple audio files from the Files app to import music.

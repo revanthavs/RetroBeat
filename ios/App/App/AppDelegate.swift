@@ -8,7 +8,7 @@ import MediaPlayer
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
     var window: UIWindow?
-    private let remoteCommandEventName = "reactpod-remote-command"
+    private let remoteCommandEventName = "retrobeat-remote-command"
     private var didConfigureAudioSession = false
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
@@ -57,16 +57,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 didConfigureAudioSession = true
             }
             try audioSession.setActive(true)
-            NSLog("ReactPod: AVAudioSession configured for background playback.")
+            NSLog("RetroBeat: AVAudioSession configured for background playback.")
         } catch {
-            NSLog("ReactPod: primary AVAudioSession config failed (\(error.localizedDescription)); trying fallback.")
+            NSLog("RetroBeat: primary AVAudioSession config failed (\(error.localizedDescription)); trying fallback.")
             do {
                 try audioSession.setCategory(.playback, mode: .default, options: [])
                 try audioSession.setActive(true)
                 didConfigureAudioSession = true
-                NSLog("ReactPod: AVAudioSession fallback configured for background playback.")
+                NSLog("RetroBeat: AVAudioSession fallback configured for background playback.")
             } catch {
-                NSLog("ReactPod: Failed to configure AVAudioSession for background playback (fallback): \(error.localizedDescription)")
+                NSLog("RetroBeat: Failed to configure AVAudioSession for background playback (fallback): \(error.localizedDescription)")
             }
         }
     }
@@ -76,7 +76,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         do {
             try audioSession.setActive(true)
         } catch {
-            NSLog("ReactPod: AVAudioSession activation failed (\(error.localizedDescription)); forcing category reconfiguration.")
+            NSLog("RetroBeat: AVAudioSession activation failed (\(error.localizedDescription)); forcing category reconfiguration.")
             configureAudioSession(forceCategoryUpdate: true)
         }
     }
@@ -165,7 +165,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     private func forwardRemoteCommandToWeb(_ command: String) -> Bool {
         guard let bridgeViewController = findBridgeViewController(from: window?.rootViewController),
               let bridge = bridgeViewController.bridge else {
-            NSLog("ReactPod: Unable to forward remote command \(command); bridge unavailable.")
+            NSLog("RetroBeat: Unable to forward remote command \(command); bridge unavailable.")
             return false
         }
 
